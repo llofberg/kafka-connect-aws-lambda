@@ -22,6 +22,7 @@ With plain json messages:
 ```
 
 ```
+# docker exec -it kafkaconnectawslambda_connect_1 bash
 # kafka-console-producer --broker-list kafka:9092 --topic aws-lambda-topic --property parse.key='true' --property key.separator=':'
 > K2:{"f1":"A7"}
 ```
@@ -53,6 +54,7 @@ With schema-registry and Avro messages:
 ```
 
 ```
+# docker exec -it kafkaconnectawslambda_connect_1 bash
 # kafka-avro-console-producer --broker-list kafka:9092 --topic aws-lambda-topic --property value.schema='{"type":"record","name":"test","fields":[{"name":"f1","type":"string"}]}' --property sc\
 hema.registry.url='http://schema_registry:8081/'
 {"f1":"v1"}
