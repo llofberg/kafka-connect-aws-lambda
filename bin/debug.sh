@@ -10,4 +10,4 @@ export CLASSPATH="$(find target/kafka-connect-aws-lambda-1.0-SNAPSHOT-package/sh
 
 # connect-standalone config/connect-json-docker.properties config/AwsLambdaSinkConnector.properties
 
-connect-standalone config/connect-avro-docker.properties config/AwsLambdaSinkConnector.properties
+connect-standalone $1 $2

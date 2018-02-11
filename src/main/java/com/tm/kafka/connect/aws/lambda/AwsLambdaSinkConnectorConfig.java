@@ -3,8 +3,9 @@ package com.tm.kafka.connect.aws.lambda;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.regions.RegionUtils;
-import com.amazonaws.regions.Regions;
 import com.amazonaws.services.lambda.model.InvocationType;
+import com.tm.kafka.connect.aws.lambda.converter.JsonPayloadConverter;
+import com.tm.kafka.connect.aws.lambda.converter.SinkRecordToPayloadConverter;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
@@ -41,7 +42,7 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
   public static final String FUNCTION_NAME_DOC = "The AWS Lambda function name.";
   public static final String FUNCTION_NAME_DISPLAY = "AWS Lambda function Name";
 
-  public static final String RETRY_BACKOFF_CONFIG = "aws.function.retry.backoff.ms";
+  public static final String RETRY_BACKOFF_CONFIG = "retry.backoff.ms";
   public static final String RETRY_BACKOFF_DOC =
     "The retry backoff in milliseconds. This config is used to notify Kafka connect to retry "
       + "delivering a message batch or performing recovery in case of transient exceptions.";
@@ -52,6 +53,13 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
   public static final String INVOCATION_TYPE_DEFAULT = "RequestResponse";
   public static final String INVOCATION_TYPE_DOC_CONFIG = "AWS Lambda function invocation type.";
   public static final String INVOCATION_TYPE_DISPLAY_CONFIG = "Invocation type";
+
+  private static final String PAYLOAD_CONVERTER_CONFIG = "aws.lambda.payload.converter.class";
+  public static final Class<? extends SinkRecordToPayloadConverter> PAYLOAD_CONVERTER_DEFAULT =
+    JsonPayloadConverter.class;
+  public static final String PAYLOAD_CONVERTER_DOC_CONFIG =
+    "Class to be used to convert Kafka messages from SinkRecord to Aws Lambda input";
+  public static final String PAYLOAD_CONVERTER_DISPLAY_CONFIG = "Payload converter class";
 
   public AwsLambdaSinkConnectorConfig(ConfigDef config, Map<String, String> parsedConfig) {
     super(config, parsedConfig);
@@ -119,6 +127,18 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
         ConfigDef.Width.SHORT,
         INVOCATION_TYPE_DISPLAY_CONFIG,
         new InvocationTypeRecommender())
+
+      .define(PAYLOAD_CONVERTER_CONFIG,
+        Type.CLASS,
+        PAYLOAD_CONVERTER_DEFAULT,
+        new PayloadConverterValidator(),
+        Importance.LOW,
+        PAYLOAD_CONVERTER_DOC_CONFIG,
+        group,
+        ++orderInGroup,
+        ConfigDef.Width.SHORT,
+        PAYLOAD_CONVERTER_DISPLAY_CONFIG,
+        new PayloadConverterRecommender())
       ;
   }
 
@@ -127,12 +147,12 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
   }
 
   @SuppressWarnings("unchecked")
-  public AWSCredentialsProvider getAwsCredentialsProviderClass() {
+  public AWSCredentialsProvider getAwsCredentialsProvider() {
     try {
       return ((Class<? extends AWSCredentialsProvider>)
-        getClass(AwsLambdaSinkConnectorConfig.CREDENTIALS_PROVIDER_CLASS_CONFIG)).getDeclaredConstructor().newInstance();
+        getClass(CREDENTIALS_PROVIDER_CLASS_CONFIG)).getDeclaredConstructor().newInstance();
     } catch (IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
-      throw new ConnectException("Invalid class for: " + AwsLambdaSinkConnectorConfig.CREDENTIALS_PROVIDER_CLASS_CONFIG, e);
+      throw new ConnectException("Invalid class for: " + CREDENTIALS_PROVIDER_CLASS_CONFIG, e);
     }
   }
 
@@ -140,12 +160,22 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
     return this.getString(FUNCTION_NAME_CONFIG);
   }
 
-  public Long getAwsFunctionRetryBackoff() {
+  public Long getRetryBackoff() {
     return this.getLong(RETRY_BACKOFF_CONFIG);
   }
 
   public InvocationType getAwsLambdaInvocationType() {
-    return InvocationType .fromValue(this.getString(INVOCATION_TYPE_CONFIG));
+    return InvocationType.fromValue(this.getString(INVOCATION_TYPE_CONFIG));
+  }
+
+  @SuppressWarnings("unchecked")
+  public SinkRecordToPayloadConverter getPayloadConverter() {
+    try {
+      return ((Class<? extends SinkRecordToPayloadConverter>)
+        getClass(PAYLOAD_CONVERTER_CONFIG)).getDeclaredConstructor().newInstance();
+    } catch (IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
+      throw new ConnectException("Invalid class for: " + PAYLOAD_CONVERTER_CONFIG, e);
+    }
   }
 
   private static class RegionRecommender implements ConfigDef.Recommender {
@@ -217,6 +247,34 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
     @Override
     public String toString() {
       return "[" + Utils.join(InvocationType.values(), ", ") + "]";
+    }
+  }
+
+  private static class PayloadConverterRecommender implements ConfigDef.Recommender {
+    @Override
+    public List<Object> validValues(String name, Map<String, Object> connectorConfigs) {
+      return Arrays.<Object>asList(JsonPayloadConverter.class);
+    }
+
+    @Override
+    public boolean visible(String name, Map<String, Object> connectorConfigs) {
+      return true;
+    }
+  }
+
+  private static class PayloadConverterValidator implements ConfigDef.Validator {
+    @Override
+    public void ensureValid(String name, Object provider) {
+      if (provider != null && provider instanceof Class
+        && SinkRecordToPayloadConverter.class.isAssignableFrom((Class<?>) provider)) {
+        return;
+      }
+      throw new ConfigException(name, provider, "Class must extend: " + SinkRecordToPayloadConverter.class);
+    }
+
+    @Override
+    public String toString() {
+      return "Any class implementing: " + SinkRecordToPayloadConverter.class;
     }
   }
 
