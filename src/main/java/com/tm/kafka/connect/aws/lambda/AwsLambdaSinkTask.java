@@ -1,11 +1,8 @@
 package com.tm.kafka.connect.aws.lambda;
 
-import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.AWSLambdaAsyncClientBuilder;
-import com.amazonaws.services.lambda.model.InvocationType;
 import com.amazonaws.services.lambda.model.InvokeRequest;
-import com.amazonaws.services.lambda.model.InvokeResult;
 import com.google.gson.Gson;
 import com.tm.kafka.connect.aws.lambda.converter.SinkRecordToPayloadConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -13,12 +10,13 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 public class AwsLambdaSinkTask extends SinkTask {
   private static Logger log = LoggerFactory.getLogger(AwsLambdaSinkTask.class);
@@ -49,8 +47,8 @@ public class AwsLambdaSinkTask extends SinkTask {
     final SinkRecordToPayloadConverter sinkRecordToPayloadConverter = connectorConfig.getPayloadConverter();
 
     loggingWrapper(collection.stream()
-                   .map(sinkRecordToPayloadConverter)
-                   .map(connectorConfig.getInvokeRequestTransformer()))
+      .map(sinkRecordToPayloadConverter)
+      .map(connectorConfig.getInvokeRequestTransformer()))
       .forEach(client::invoke);
 
     if (log.isDebugEnabled()) {
@@ -60,7 +58,7 @@ public class AwsLambdaSinkTask extends SinkTask {
 
   protected Stream<InvokeRequest> loggingWrapper(final Stream<InvokeRequest> stream) {
     return getLogFunction()
-      map((final Consumer<InvokeRequest> f) -> stream.peek(f)) // if there is a function, stream to logging
+      .map((final Consumer<InvokeRequest> f) -> stream.peek(f)) // if there is a function, stream to logging
       .orElse(stream);          // or else just return the stream as is
   }
 
