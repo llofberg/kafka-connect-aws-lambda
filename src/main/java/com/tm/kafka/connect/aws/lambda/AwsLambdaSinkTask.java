@@ -3,7 +3,6 @@ package com.tm.kafka.connect.aws.lambda;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.AWSLambdaAsyncClientBuilder;
 import com.amazonaws.services.lambda.model.InvokeRequest;
-import com.google.gson.Gson;
 import com.tm.kafka.connect.aws.lambda.converter.SinkRecordToPayloadConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
@@ -22,7 +21,6 @@ public class AwsLambdaSinkTask extends SinkTask {
   private static Logger log = LoggerFactory.getLogger(AwsLambdaSinkTask.class);
 
   private AwsLambdaSinkConnectorConfig connectorConfig;
-  private final Gson gson = new Gson();
   AWSLambda client;
 
   @Override

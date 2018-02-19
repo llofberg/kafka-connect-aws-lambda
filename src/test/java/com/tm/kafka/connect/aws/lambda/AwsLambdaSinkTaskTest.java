@@ -108,13 +108,13 @@ public class AwsLambdaSinkTaskTest {
       "\"values\":[\"" + bobbyMcGee + "\"," + value21 + "]},\"timestamp\":" + timestamp + "}";
 
     task.client = new AbstractAWSLambda() {
-		    @Override
-		    public InvokeResult invoke(final InvokeRequest request) {
-			    assertEquals(FUNCTION_NAME, request.getFunctionName());
-			    assertEquals(payload, new String(request.getPayload().array()));
-			    return (InvokeResult) null;
-		    }
-	    };
+      @Override
+      public InvokeResult invoke(final InvokeRequest request) {
+        assertEquals(FUNCTION_NAME, request.getFunctionName());
+        assertEquals(payload, new String(request.getPayload().array()));
+        return (InvokeResult) null;
+      }
+    };
 
     task.initialize(context);
     task.start(props);
