@@ -3,6 +3,7 @@ package com.tm.kafka.connect.aws.lambda;
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.auth.DefaultAWSCredentialsProviderChain;
 import com.amazonaws.regions.RegionUtils;
+import com.amazonaws.services.lambda.model.InvokeRequest;
 import com.amazonaws.services.lambda.model.InvocationType;
 import com.tm.kafka.connect.aws.lambda.converter.JsonPayloadConverter;
 import com.tm.kafka.connect.aws.lambda.converter.SinkRecordToPayloadConverter;
@@ -20,6 +21,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import static org.apache.kafka.common.config.ConfigDef.NO_DEFAULT_VALUE;
 
@@ -285,6 +287,17 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
       visible.define(key);
     }
     return visible;
+  }
+
+  public InvokeRequest getInvokeRequestTemplate() {
+    return new InvokeRequest()
+      .withFunctionName(getAwsFunctionName())
+      .withInvocationType(getAwsLambdaInvocationType());
+  }
+
+  public Function<String, InvokeRequest> getInvokeRequestTransformer() {
+    final InvokeRequest template = getInvokeRequestTemplate();
+    return x -> template.clone().withPayload(x);
   }
 
   public static void main(String[] args) {

@@ -1,5 +1,7 @@
 package com.tm.kafka.connect.aws.lambda;
 
+import com.amazonaws.services.lambda.AbstractAWSLambda;
+import com.amazonaws.services.lambda.model.InvokeRequest;
 import com.amazonaws.services.lambda.model.InvokeResult;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.record.TimestampType;
@@ -105,12 +107,14 @@ public class AwsLambdaSinkTaskTest {
       "\"valueSchema\":" + valueSchemaStr + "," +
       "\"values\":[\"" + bobbyMcGee + "\"," + value21 + "]},\"timestamp\":" + timestamp + "}";
 
-    task.invokeFunction = (region, awsCredentialsProvider, invokeRequest) -> {
-      assertEquals(FUNCTION_NAME, invokeRequest.getFunctionName());
-      assertEquals(REGION, region);
-      assertEquals(payload, new String(invokeRequest.getPayload().array()));
-      return (InvokeResult) null;
-    };
+    task.client = new AbstractAWSLambda() {
+		    @Override
+		    public InvokeResult invoke(final InvokeRequest request) {
+			    assertEquals(FUNCTION_NAME, request.getFunctionName());
+			    assertEquals(payload, new String(request.getPayload().array()));
+			    return (InvokeResult) null;
+		    }
+	    };
 
     task.initialize(context);
     task.start(props);
