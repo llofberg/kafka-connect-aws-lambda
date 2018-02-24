@@ -10,7 +10,6 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
-import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -92,18 +91,17 @@ public class AwsLambdaSinkTaskTest {
       "\"name\":\"com.example.Person\"}," +
       "\"payload\":{\"name\":\"Bobby McGee\",\"age\":21}}";
 
-    task.initialize(context);
-    task.start(props);
-
-    task.client = new AbstractAWSLambda() {
+    task.setClient(new AbstractAWSLambda() {
       @Override
       public InvokeResult invoke(final InvokeRequest request) {
         assertEquals(FUNCTION_NAME, request.getFunctionName());
         assertEquals(payload, new String(request.getPayload().array()));
         return null;
       }
-    };
+    });
 
+    task.initialize(context);
+    task.start(props);
     task.put(records);
   }
 

@@ -20,16 +20,22 @@ public class AwsLambdaSinkTask extends SinkTask {
   private static Logger log = LoggerFactory.getLogger(AwsLambdaSinkTask.class);
 
   private AwsLambdaSinkConnectorConfig connectorConfig;
-  AWSLambda client;
+  private AWSLambda client;
 
   @Override
   public void start(Map<String, String> map) {
     connectorConfig = new AwsLambdaSinkConnectorConfig(map);
     context.timeout(connectorConfig.getRetryBackoff());
-    client = AWSLambdaAsyncClientBuilder.standard()
-      .withRegion(connectorConfig.getAwsRegion())
-      .withCredentials(connectorConfig.getAwsCredentialsProvider())
-      .build();
+    if (client == null) {
+      setClient(AWSLambdaAsyncClientBuilder.standard()
+        .withRegion(connectorConfig.getAwsRegion())
+        .withCredentials(connectorConfig.getAwsCredentialsProvider())
+        .build());
+    }
+  }
+
+  void setClient(AWSLambda client) {
+    this.client = client;
   }
 
   @Override
