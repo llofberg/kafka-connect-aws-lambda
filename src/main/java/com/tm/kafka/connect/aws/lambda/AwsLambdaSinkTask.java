@@ -3,7 +3,6 @@ package com.tm.kafka.connect.aws.lambda;
 import com.amazonaws.services.lambda.AWSLambda;
 import com.amazonaws.services.lambda.AWSLambdaAsyncClientBuilder;
 import com.amazonaws.services.lambda.model.InvokeRequest;
-import com.tm.kafka.connect.aws.lambda.converter.SinkRecordToPayloadConverter;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
@@ -41,12 +40,9 @@ public class AwsLambdaSinkTask extends SinkTask {
 
   @Override
   public void put(Collection<SinkRecord> collection) {
-    final InvokeRequest template = connectorConfig.getInvokeRequestTemplate();
-    final SinkRecordToPayloadConverter sinkRecordToPayloadConverter = connectorConfig.getPayloadConverter();
-
     loggingWrapper(collection.stream()
-      .map(sinkRecordToPayloadConverter)
-      .map(connectorConfig.getInvokeRequestTransformer()))
+      .map(connectorConfig.getPayloadConverter())
+      .map(connectorConfig.getInvokeRequestWithPayload()))
       .forEach(client::invoke);
 
     if (log.isDebugEnabled()) {
@@ -54,29 +50,25 @@ public class AwsLambdaSinkTask extends SinkTask {
     }
   }
 
-  protected Stream<InvokeRequest> loggingWrapper(final Stream<InvokeRequest> stream) {
+  private Stream<InvokeRequest> loggingWrapper(final Stream<InvokeRequest> stream) {
     return getLogFunction()
-      .map((final Consumer<InvokeRequest> f) -> stream.peek(f)) // if there is a function, stream to logging
-      .orElse(stream);          // or else just return the stream as is
+      .map(stream::peek) // if there is a function, stream to logging
+      .orElse(stream); // or else just return the stream as is
   }
 
-  protected Optional<Consumer<InvokeRequest>> getLogFunction() {
+  private Optional<Consumer<InvokeRequest>> getLogFunction() {
     if (!log.isDebugEnabled()) {
       return Optional.empty();
     }
-
-    final String logTemplate = "Calling " + connectorConfig.getAwsFunctionName();
     if (!log.isTraceEnabled()) {
-      return Optional.of(x -> log.debug(logTemplate));
+      return Optional.of(x -> log.debug("Calling " + connectorConfig.getAwsFunctionName()));
     }
-
-    final String traceLogTemplate = logTemplate + " with message: {}";
-    return Optional.of(x -> log.trace(logTemplate, UTF_8.decode(x.getPayload()).toString()));
+    return Optional.of(x -> log.trace("Calling " + connectorConfig.getAwsFunctionName(),
+      UTF_8.decode(x.getPayload()).toString()));
   }
 
   @Override
   public String version() {
     return VersionUtil.getVersion();
   }
-
 }

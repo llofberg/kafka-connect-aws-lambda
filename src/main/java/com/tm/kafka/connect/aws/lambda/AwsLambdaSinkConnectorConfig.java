@@ -18,6 +18,7 @@ import org.apache.kafka.connect.errors.ConnectException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,46 +29,59 @@ import static org.apache.kafka.common.config.ConfigDef.NO_DEFAULT_VALUE;
 
 public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
 
-  public static final String REGION_CONFIG = "aws.region";
-  public static final String REGION_DOC_CONFIG = "The AWS region.";
-  public static final String REGION_DISPLAY_CONFIG = "AWS region";
+  static final String REGION_CONFIG = "aws.region";
+  private static final String REGION_DOC_CONFIG = "The AWS region.";
+  private static final String REGION_DISPLAY_CONFIG = "AWS region";
 
-  public static final String CREDENTIALS_PROVIDER_CLASS_CONFIG = "aws.credentials.provider.class";
-  public static final Class<? extends AWSCredentialsProvider> CREDENTIALS_PROVIDER_CLASS_DEFAULT =
+  private static final String CREDENTIALS_PROVIDER_CLASS_CONFIG = "aws.credentials.provider.class";
+  private static final Class<? extends AWSCredentialsProvider> CREDENTIALS_PROVIDER_CLASS_DEFAULT =
     DefaultAWSCredentialsProviderChain.class;
-  public static final String CREDENTIALS_PROVIDER_DOC_CONFIG =
+  private static final String CREDENTIALS_PROVIDER_DOC_CONFIG =
     "Credentials provider or provider chain to use for authentication to AWS. By default "
       + "the connector uses 'DefaultAWSCredentialsProviderChain'.";
-  public static final String CREDENTIALS_PROVIDER_DISPLAY_CONFIG = "AWS Credentials Provider Class";
+  private static final String CREDENTIALS_PROVIDER_DISPLAY_CONFIG = "AWS Credentials Provider Class";
 
-  public static final String FUNCTION_NAME_CONFIG = "aws.function.name";
-  public static final String FUNCTION_NAME_DOC = "The AWS Lambda function name.";
-  public static final String FUNCTION_NAME_DISPLAY = "AWS Lambda function Name";
+  static final String FUNCTION_NAME_CONFIG = "aws.function.name";
+  private static final String FUNCTION_NAME_DOC = "The AWS Lambda function name.";
+  private static final String FUNCTION_NAME_DISPLAY = "AWS Lambda function Name";
 
-  public static final String RETRY_BACKOFF_CONFIG = "retry.backoff.ms";
-  public static final String RETRY_BACKOFF_DOC =
+  private static final String RETRY_BACKOFF_CONFIG = "retry.backoff.ms";
+  private static final String RETRY_BACKOFF_DOC =
     "The retry backoff in milliseconds. This config is used to notify Kafka connect to retry "
       + "delivering a message batch or performing recovery in case of transient exceptions.";
-  public static final long RETRY_BACKOFF_DEFAULT = 5000L;
-  public static final String RETRY_BACKOFF_DISPLAY = "Retry Backoff (ms)";
+  private static final long RETRY_BACKOFF_DEFAULT = 5000L;
+  private static final String RETRY_BACKOFF_DISPLAY = "Retry Backoff (ms)";
 
   private static final String INVOCATION_TYPE_CONFIG = "aws.lambda.invocation.type";
-  public static final String INVOCATION_TYPE_DEFAULT = "RequestResponse";
-  public static final String INVOCATION_TYPE_DOC_CONFIG = "AWS Lambda function invocation type.";
-  public static final String INVOCATION_TYPE_DISPLAY_CONFIG = "Invocation type";
+  private static final String INVOCATION_TYPE_DEFAULT = "RequestResponse";
+  private static final String INVOCATION_TYPE_DOC_CONFIG = "AWS Lambda function invocation type.";
+  private static final String INVOCATION_TYPE_DISPLAY_CONFIG = "Invocation type";
 
   private static final String PAYLOAD_CONVERTER_CONFIG = "aws.lambda.payload.converter.class";
-  public static final Class<? extends SinkRecordToPayloadConverter> PAYLOAD_CONVERTER_DEFAULT =
+  private static final Class<? extends SinkRecordToPayloadConverter> PAYLOAD_CONVERTER_DEFAULT =
     JsonPayloadConverter.class;
-  public static final String PAYLOAD_CONVERTER_DOC_CONFIG =
+  private static final String PAYLOAD_CONVERTER_DOC_CONFIG =
     "Class to be used to convert Kafka messages from SinkRecord to Aws Lambda input";
-  public static final String PAYLOAD_CONVERTER_DISPLAY_CONFIG = "Payload converter class";
+  private static final String PAYLOAD_CONVERTER_DISPLAY_CONFIG = "Payload converter class";
 
-  public AwsLambdaSinkConnectorConfig(ConfigDef config, Map<String, String> parsedConfig) {
+  private final SinkRecordToPayloadConverter sinkRecordToPayloadConverter;
+  private final InvokeRequest invokeRequest;
+
+  @SuppressWarnings("unchecked")
+  private AwsLambdaSinkConnectorConfig(ConfigDef config, Map<String, String> parsedConfig) {
     super(config, parsedConfig);
+    try {
+      sinkRecordToPayloadConverter = ((Class<? extends SinkRecordToPayloadConverter>)
+        getClass(PAYLOAD_CONVERTER_CONFIG)).getDeclaredConstructor().newInstance();
+    } catch (IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
+      throw new ConnectException("Invalid class for: " + PAYLOAD_CONVERTER_CONFIG, e);
+    }
+    invokeRequest = new InvokeRequest()
+      .withFunctionName(getAwsFunctionName())
+      .withInvocationType(getAwsLambdaInvocationType());
   }
 
-  public AwsLambdaSinkConnectorConfig(Map<String, String> parsedConfig) {
+  AwsLambdaSinkConnectorConfig(Map<String, String> parsedConfig) {
     this(conf(), parsedConfig);
   }
 
@@ -166,24 +180,18 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
     return this.getLong(RETRY_BACKOFF_CONFIG);
   }
 
-  public InvocationType getAwsLambdaInvocationType() {
+  private InvocationType getAwsLambdaInvocationType() {
     return InvocationType.fromValue(this.getString(INVOCATION_TYPE_CONFIG));
   }
 
-  @SuppressWarnings("unchecked")
   public SinkRecordToPayloadConverter getPayloadConverter() {
-    try {
-      return ((Class<? extends SinkRecordToPayloadConverter>)
-        getClass(PAYLOAD_CONVERTER_CONFIG)).getDeclaredConstructor().newInstance();
-    } catch (IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
-      throw new ConnectException("Invalid class for: " + PAYLOAD_CONVERTER_CONFIG, e);
-    }
+    return sinkRecordToPayloadConverter;
   }
 
   private static class RegionRecommender implements ConfigDef.Recommender {
     @Override
     public List<Object> validValues(String name, Map<String, Object> connectorConfigs) {
-      return new ArrayList<Object>(RegionUtils.getRegions());
+      return new ArrayList<>(RegionUtils.getRegions());
     }
 
     @Override
@@ -226,7 +234,7 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
   private static class InvocationTypeRecommender implements ConfigDef.Recommender {
     @Override
     public List<Object> validValues(String name, Map<String, Object> connectorConfigs) {
-      return Arrays.<Object>asList(InvocationType.values());
+      return Arrays.asList(InvocationType.values());
     }
 
     @Override
@@ -255,7 +263,7 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
   private static class PayloadConverterRecommender implements ConfigDef.Recommender {
     @Override
     public List<Object> validValues(String name, Map<String, Object> connectorConfigs) {
-      return Arrays.<Object>asList(JsonPayloadConverter.class);
+      return Collections.singletonList(JsonPayloadConverter.class);
     }
 
     @Override
@@ -280,7 +288,7 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
     }
   }
 
-  public static ConfigDef getConfig() {
+  private static ConfigDef getConfig() {
     Map<String, ConfigDef.ConfigKey> everything = new HashMap<>(conf().configKeys());
     ConfigDef visible = new ConfigDef();
     for (ConfigDef.ConfigKey key : everything.values()) {
@@ -289,15 +297,8 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
     return visible;
   }
 
-  public InvokeRequest getInvokeRequestTemplate() {
-    return new InvokeRequest()
-      .withFunctionName(getAwsFunctionName())
-      .withInvocationType(getAwsLambdaInvocationType());
-  }
-
-  public Function<String, InvokeRequest> getInvokeRequestTransformer() {
-    final InvokeRequest template = getInvokeRequestTemplate();
-    return x -> template.clone().withPayload(x);
+  public Function<String, InvokeRequest> getInvokeRequestWithPayload() {
+    return invokeRequest::withPayload;
   }
 
   public static void main(String[] args) {

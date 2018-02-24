@@ -10,6 +10,7 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTaskContext;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.ArrayList;
@@ -81,43 +82,28 @@ public class AwsLambdaSinkTaskTest {
       TimestampType.CREATE_TIME);
     records.add(sinkRecord);
 
-    String valueSchemaStr = "" +
-      "{\"type\":\"STRUCT\",\"optional\":false," +
+    String payload = "{\"schema\":" +
+      "{\"type\":\"struct\"," +
       "\"fields\":[" +
-      "{\"name\":\"name\",\"index\":0,\"schema\":{\"type\":\"STRING\",\"optional\":false}}," +
-      "{\"name\":\"age\",\"index\":1,\"schema\":{\"type\":\"INT32\",\"optional\":false}}]," +
-      "\"fieldsByName\":{\"name\":{\"name\":\"name\",\"index\":0,\"schema\":{\"type\":\"STRING\",\"optional\":false}}," +
-      "\"age\":{\"name\":\"age\",\"index\":1,\"schema\":{\"type\":\"INT32\",\"optional\":false}}}," +
+      "{\"type\":\"string\",\"optional\":false,\"field\":\"name\"}," +
+      "{\"type\":\"int32\",\"optional\":false,\"field\":\"age\"}" +
+      "]," +
+      "\"optional\":false," +
       "\"name\":\"com.example.Person\"}," +
-      "\"value\":{\"schema\":{\"type\":\"STRUCT\",\"optional\":false," +
-      "\"fields\":[" +
-      "{\"name\":\"name\",\"index\":0,\"schema\":{\"type\":\"STRING\",\"optional\":false}}," +
-      "{\"name\":\"age\",\"index\":1,\"schema\":{\"type\":\"INT32\",\"optional\":false}}]," +
-      "\"fieldsByName\":" +
-      "{\"name\":{\"name\":\"name\",\"index\":0,\"schema\":{\"type\":\"STRING\",\"optional\":false}}," +
-      "\"age\":{\"name\":\"age\",\"index\":1,\"schema\":{\"type\":\"INT32\",\"optional\":false}}}," +
-      "\"name\":\"com.example.Person\"}";
+      "\"payload\":{\"name\":\"Bobby McGee\",\"age\":21}}";
 
-    String payload = "{\"kafkaOffset\":" + offset + "," +
-      "\"timestampType\":\"CREATE_TIME\"," +
-      "\"topic\":\"" + TOPIC + "\"," +
-      "\"kafkaPartition\":1," +
-      "\"keySchema\":{\"type\":\"STRING\",\"optional\":false}," +
-      "\"key\":\"key1\"," +
-      "\"valueSchema\":" + valueSchemaStr + "," +
-      "\"values\":[\"" + bobbyMcGee + "\"," + value21 + "]},\"timestamp\":" + timestamp + "}";
+    task.initialize(context);
+    task.start(props);
 
     task.client = new AbstractAWSLambda() {
       @Override
       public InvokeResult invoke(final InvokeRequest request) {
         assertEquals(FUNCTION_NAME, request.getFunctionName());
         assertEquals(payload, new String(request.getPayload().array()));
-        return (InvokeResult) null;
+        return null;
       }
     };
 
-    task.initialize(context);
-    task.start(props);
     task.put(records);
   }
 
