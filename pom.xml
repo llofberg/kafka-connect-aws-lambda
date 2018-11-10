@@ -11,9 +11,9 @@
   <description>A Kafka Connect Connector for kafka-connect-aws-lambda</description>
 
   <properties>
-    <kafka.version>2.0.0</kafka.version>
+    <kafka.version>2.0.1</kafka.version>
     <jackson.version>2.9.7</jackson.version>
-    <confluent.version>5.0.0</confluent.version>
+    <confluent.version>5.0.1</confluent.version>
     <confluent.maven.repo>http://packages.confluent.io/maven/</confluent.maven.repo>
   </properties>
 
@@ -47,7 +47,7 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk-lambda</artifactId>
-      <version>1.11.432</version>
+      <version>1.11.447</version>
     </dependency>
 
     <dependency>
@@ -114,8 +114,37 @@
   <build>
     <plugins>
       <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>versions-maven-plugin</artifactId>
+        <version>2.7</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>3.0.0-M2</version>
+        <executions>
+          <execution>
+            <id>enforce-versions</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireMavenVersion>
+                  <version>3.0.5</version>
+                </requireMavenVersion>
+                <requireJavaVersion>
+                  <version>1.8</version>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
+        <version>3.1.0</version>
         <configuration>
           <archive>
             <manifest>
@@ -128,7 +157,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>2.5.1</version>
+        <version>3.8.0</version>
         <inherited>true</inherited>
         <configuration>
           <source>1.8</source>
@@ -137,7 +166,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.5.3</version>
+        <version>3.1.0</version>
         <configuration>
           <descriptors>
             <descriptor>src/main/assembly/package.xml</descriptor>
