@@ -7,6 +7,7 @@ import com.amazonaws.services.lambda.model.InvocationType;
 import com.amazonaws.services.lambda.model.InvokeRequest;
 import com.tm.kafka.connect.aws.lambda.converter.JsonPayloadConverter;
 import com.tm.kafka.connect.aws.lambda.converter.SinkRecordToPayloadConverter;
+import org.apache.kafka.common.Configurable;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
@@ -40,6 +41,16 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
     "Credentials provider or provider chain to use for authentication to AWS. By default "
       + "the connector uses 'DefaultAWSCredentialsProviderChain'.";
   private static final String CREDENTIALS_PROVIDER_DISPLAY_CONFIG = "AWS Credentials Provider Class";
+
+  /**
+   * The properties that begin with this prefix will be used to configure a class, specified by
+   * {@code s3.credentials.provider.class} if it implements {@link Configurable}.
+   */
+  public static final String CREDENTIALS_PROVIDER_CONFIG_PREFIX =
+    CREDENTIALS_PROVIDER_CLASS_CONFIG.substring(
+      0,
+      CREDENTIALS_PROVIDER_CLASS_CONFIG.lastIndexOf(".") + 1
+    );
 
   static final String FUNCTION_NAME_CONFIG = "aws.function.name";
   private static final String FUNCTION_NAME_DOC = "The AWS Lambda function name.";
@@ -165,8 +176,14 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
   @SuppressWarnings("unchecked")
   public AWSCredentialsProvider getAwsCredentialsProvider() {
     try {
-      return ((Class<? extends AWSCredentialsProvider>)
+      AWSCredentialsProvider awsCredentialsProvider = ((Class<? extends AWSCredentialsProvider>)
         getClass(CREDENTIALS_PROVIDER_CLASS_CONFIG)).getDeclaredConstructor().newInstance();
+      if (awsCredentialsProvider instanceof Configurable) {
+        Map<String, Object> configs = originalsWithPrefix(CREDENTIALS_PROVIDER_CONFIG_PREFIX);
+        configs.remove(CREDENTIALS_PROVIDER_CLASS_CONFIG.substring(CREDENTIALS_PROVIDER_CONFIG_PREFIX.length()));
+        ((Configurable) awsCredentialsProvider).configure(configs);
+      }
+      return awsCredentialsProvider;
     } catch (IllegalAccessException | InstantiationException | InvocationTargetException | NoSuchMethodException e) {
       throw new ConnectException("Invalid class for: " + CREDENTIALS_PROVIDER_CLASS_CONFIG, e);
     }
@@ -218,8 +235,7 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
   private static class CredentialsProviderValidator implements ConfigDef.Validator {
     @Override
     public void ensureValid(String name, Object provider) {
-      if (provider != null && provider instanceof Class
-        && AWSCredentialsProvider.class.isAssignableFrom((Class<?>) provider)) {
+      if (provider instanceof Class && AWSCredentialsProvider.class.isAssignableFrom((Class<?>) provider)) {
         return;
       }
       throw new ConfigException(name, provider, "Class must extend: " + AWSCredentialsProvider.class);
@@ -275,8 +291,7 @@ public class AwsLambdaSinkConnectorConfig extends AbstractConfig {
   private static class PayloadConverterValidator implements ConfigDef.Validator {
     @Override
     public void ensureValid(String name, Object provider) {
-      if (provider != null && provider instanceof Class
-        && SinkRecordToPayloadConverter.class.isAssignableFrom((Class<?>) provider)) {
+      if (provider instanceof Class && SinkRecordToPayloadConverter.class.isAssignableFrom((Class<?>) provider)) {
         return;
       }
       throw new ConfigException(name, provider, "Class must extend: " + SinkRecordToPayloadConverter.class);

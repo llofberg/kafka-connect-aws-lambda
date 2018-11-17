@@ -47,7 +47,7 @@
     <dependency>
       <groupId>com.amazonaws</groupId>
       <artifactId>aws-java-sdk-lambda</artifactId>
-      <version>1.11.447</version>
+      <version>1.11.452</version>
     </dependency>
 
     <dependency>
