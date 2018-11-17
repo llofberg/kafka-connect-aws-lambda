@@ -15,7 +15,6 @@ public class ConfigurationAWSCredentialsProvider implements AWSCredentialsProvid
 
   @Override
   public AWSCredentials getCredentials() {
-    org.apache.kafka.common.config.provider.FileConfigProvider p;
     return awsCredentials;
   }
 
