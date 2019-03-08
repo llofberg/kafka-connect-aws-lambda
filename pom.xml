@@ -4,7 +4,7 @@
 
   <groupId>com.tm.kafka</groupId>
   <artifactId>kafka-connect-aws-lambda</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <version>1.0</version>
   <packaging>jar</packaging>
 
   <name>kafka-connect-aws-lambda</name>
@@ -12,7 +12,7 @@
 
   <properties>
     <kafka.version>2.0.1</kafka.version>
-    <jackson.version>2.9.7</jackson.version>
+    <jackson.version>2.9.8</jackson.version>
     <confluent.version>5.0.1</confluent.version>
     <confluent.maven.repo>http://packages.confluent.io/maven/</confluent.maven.repo>
   </properties>
