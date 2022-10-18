@@ -12,7 +12,7 @@
 
   <properties>
     <kafka.version>2.0.1</kafka.version>
-    <jackson.version>2.12.1</jackson.version>
+    <jackson.version>2.13.4.1</jackson.version>
     <confluent.version>5.0.1</confluent.version>
     <confluent.maven.repo>http://packages.confluent.io/maven/</confluent.maven.repo>
   </properties>
